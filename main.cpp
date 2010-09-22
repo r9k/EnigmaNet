@@ -92,7 +92,7 @@ double net_tcp_listen(unsigned short port)
 double net_tcp_accept(double listener_id, bool blocking)
 {
     if(!SocketList.count(listener_id)){
-        last_error = Socket::InvalidId;
+        last_error = Socket::InvalidSocketId;
         return 0;
     }
 
@@ -118,7 +118,7 @@ double net_tcp_accept(double listener_id, bool blocking)
 double net_tcp_connected(double tcpsocketId)
 {
     if(!SocketList.count(tcpsocketId)){
-        last_error = Socket::InvalidId;
+        last_error = Socket::InvalidSocketId;
         return 0;
     }
 
@@ -133,15 +133,15 @@ double net_tcp_connected(double tcpsocketId)
 double net_tcp_send(double tcpsocketId, double packetId)
 {
     if(!SocketList.count(tcpsocketId)){
-        last_error = Socket::InvalidId;
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+    if(!PacketList.count(packetId))
+    {
+        last_error = Socket::InvalidPacketId;
         return 0;
     }
 
-    if(!PacketList.count(packetId))
-    {
-        last_error = Socket::InvalidId;
-        return 0;
-    }
     TcpSocket* sock = dynamic_cast<TcpSocket* >(SocketList[tcpsocketId]);
 
     last_error = sock->Send( *(PacketList[packetId]) );
@@ -161,7 +161,11 @@ double net_packet_create()
 template <class T>
 double net_packet_write(double packetId, T value)
 {
-    if(!PacketList.count(packetId)){ return 0; }
+    if(!PacketList.count(packetId))
+    {
+        last_error = Socket::InvalidPacketId;
+        return 0;
+    }
     *(PacketList[packetId]) << value;
     return 1;
 }
@@ -169,7 +173,11 @@ double net_packet_write(double packetId, T value)
 template <class T>
 T net_packet_read(double packetId, T &var)
 {
-    if(!PacketList.count(packetId)){ return 0; }
+    if(!PacketList.count(packetId))
+    {
+        last_error = Socket::InvalidPacketId;
+        return 0;
+    }
     *(PacketList[packetId]) >> var;
     return var;
 }
@@ -182,13 +190,17 @@ double net_packet_destroy(double packetId)
         PacketList.erase(packetId);
         return 1;
     }
+    last_error = Socket::InvalidPacketId;
     return 0;
-
 }
 
 double net_packet_clear(double packetId)
 {
-    if(!PacketList.count(packetId)){ return 0; }
+    if(!PacketList.count(packetId))
+    {
+        last_error = Socket::InvalidPacketId;
+        return 0;
+    }
     PacketList[packetId]->Clear();
     return 1;
 }
@@ -210,8 +222,11 @@ string net_last_error()
         case Socket::Error:
             error = "Error";
             break;
-        case Socket::InvalidId:
-            error = "InvalidId";
+        case Socket::InvalidSocketId:
+            error = "InvalidSocketId";
+            break;
+        case Socket::InvalidPacketId:
+            error = "InvalidPacketId";
             break;
     }
     return error;
