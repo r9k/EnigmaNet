@@ -178,8 +178,12 @@ T net_packet_read(double packetId, T &var)
         last_error = Socket::InvalidPacketId;
         return 0;
     }
-    *(PacketList[packetId]) >> var;
-    return var;
+    if(*(PacketList[packetId]) >> var)
+    {
+        return var;
+    }
+    last_error = Socket::PacketEmpty;
+    return 0;
 }
 
 double net_packet_destroy(double packetId)
