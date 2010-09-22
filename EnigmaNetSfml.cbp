@@ -28,6 +28,9 @@
 				<Compiler>
 					<Add option="-DSFML_SYSTEM_LINUX" />
 				</Compiler>
+				<Linker>
+					<Add option="-lpthread" />
+				</Linker>
 			</Target>
 		</Build>
 		<Compiler>
