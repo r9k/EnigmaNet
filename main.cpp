@@ -51,6 +51,10 @@ template <class T> double net_packet_write(double packetId, T value);
 template <class T> T net_packet_read(double packetId, T &var);
 double net_packet_clear(double packetId);
 
+double net_utility_rc4_init(string keyString);
+double net_utility_rc4_step(double step);
+double net_utility_rc4_xor(double packetId);
+
 double net_tcp_connect(string ip, unsigned short port, bool blocking)
 {
     return net_tcp_connect_timeout(ip, port, blocking, 0.0f);
@@ -152,6 +156,100 @@ double net_tcp_send(double tcpsocketId, double packetId)
     return 1;
 }
 
+unsigned char rc4_S[256];
+unsigned int rc4_i, rc4_j;
+double rc4_step = 0;
+bool rc4_ready = false;
+/////////////////////////////////////////////
+//
+// Call this once to init the rc4 system
+//
+/////////////////////////////////////////////
+double net_utility_rc4_init(string keyString)
+{
+    const char* key = keyString.c_str();
+    unsigned int key_length = keyString.length();
+
+    if(key_length == 0)
+        return 0;
+
+    for (rc4_i = 0; rc4_i < 256; rc4_i++)
+        rc4_S[rc4_i] = rc4_i;
+
+    char temp;
+
+    for (rc4_i = rc4_j = 0; rc4_i < 256; rc4_i++) {
+        rc4_j = (rc4_j + key[rc4_i % key_length] + rc4_S[rc4_i]) & 255;
+        temp = rc4_S[rc4_i];
+        rc4_S[rc4_i] = rc4_S[rc4_j];
+        rc4_S[rc4_j] = temp;
+    }
+
+    rc4_i = rc4_j = 0;
+
+    rc4_ready = 1;
+
+    //Drop the first 3072 bytes to avoid
+    //Fluhrer, Mantin and Shamir attack
+    net_utility_rc4_step(3072);
+    rc4_step = 0;
+
+    return 1;
+}
+
+///////////////////////////////
+//
+// Brings the rc4 system to the current
+//
+/////////////////////////////
+double net_utility_rc4_step(double step)
+{
+    if(!rc4_ready) return 0;
+    if(step <= rc4_step) return 1;
+
+    char temp;
+    for(double i = 0; i < step - rc4_step; ++i)
+    {
+        rc4_i = (rc4_i + 1) & 255;
+        rc4_j = (rc4_j + rc4_S[rc4_i]) & 255;
+
+        temp = rc4_S[rc4_i];
+        rc4_S[rc4_i] = rc4_S[rc4_j];
+        rc4_S[rc4_j] = temp;
+
+        ++rc4_step;
+    }
+    return 1;
+}
+
+
+double net_utility_rc4_xor(double packetId)
+{
+    if(!rc4_ready) return 0;
+    if(!PacketList.count(packetId))
+    {
+        last_error = Socket::InvalidPacketId;
+        return 0;
+    }
+
+    Packet *pac = PacketList[packetId];
+
+    size_t size = pac->GetDataSize();
+    if(size == 0)
+        return 1;
+
+    vector<char>(*packetBytes) = pac->getDataPointer();
+
+    int k = 0;
+    while(k < size)
+    {
+        (*packetBytes)[k] ^= rc4_S[(rc4_S[rc4_i] + rc4_S[rc4_j]) & 255];
+        k++;
+    }
+
+    return 1;
+}
+
 double net_packet_create()
 {
     Packet* pack = new Packet();
@@ -232,6 +330,9 @@ string net_last_error()
         case Socket::InvalidPacketId:
             error = "InvalidPacketId";
             break;
+        case Socket::PacketEmpty:
+            error = "PacketEmpty";
+            break;
     }
     return error;
 }
@@ -281,6 +382,14 @@ int main()
             Sleep(3);
             net_packet_clear(packetId);
             net_packet_write(packetId, "5\n");
+            cout << net_tcp_send(sockId, packetId) << endl;
+            Sleep(3);
+            net_packet_clear(packetId);
+            net_packet_write(packetId, "pedia");
+
+            net_utility_rc4_init("a_cool_key");
+            net_utility_rc4_xor(packetId);
+
             cout << net_tcp_send(sockId, packetId) << endl;
 
             net_packet_destroy(packetId);

@@ -56,7 +56,7 @@ public :
         Disconnected,   ///< The TCP socket has been disconnected
         Error,          ///< An unexpected error happened
         InvalidSocketId,///< Socket does not exists
-        InvalidPacketId,///< Packet does nto exists
+        InvalidPacketId,///< Packet does not exists
         PacketEmpty     ///< Not enough data left to read
     };
 

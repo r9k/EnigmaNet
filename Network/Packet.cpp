@@ -69,6 +69,11 @@ void Packet::Clear()
     myIsValid = true;
 }
 
+std::vector<char>* Packet::getDataPointer()
+{
+    return &myData;
+}
+
 
 ////////////////////////////////////////////////////////////
 const char* Packet::GetData() const

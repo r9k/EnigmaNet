@@ -199,6 +199,8 @@ public :
     Packet& operator <<(const std::wstring& data);
     Packet& operator <<(const String&       data);
 
+    std::vector<char>* getDataPointer();
+
 private :
 
     friend class TcpSocket;
