@@ -7,7 +7,6 @@
 using namespace std;
 using namespace sf;
 
-
 map<double, Socket* > SocketList;
 map<double, Socket* >::iterator SocketListIt;
 typedef pair<double, Socket* > SocketListPair;
@@ -38,21 +37,29 @@ Socket::Status last_error;
 
 double net_tcp_connect(string ip, unsigned short port, bool blocking);
 double net_tcp_connect_timeout(string ip, unsigned short port, bool blocking, float seconds);
+double net_tcp_set_blocking(double tcpsocketId, bool blocking);
+
 double net_tcp_listen(unsigned short port, bool blocking);
 double net_tcp_accept(double listener_id, bool blocking);
 double net_tcp_connected(double tcpsocketId);
+double net_tcp_disconnect(double tcpsocketId);
+
 double net_tcp_send(double tcpsocketId, double packetId);
+double net_tcp_receive(double tcpsocketId, double packetId);
 
 string net_last_error();
 
 double net_packet_create();
 double net_packet_destroy(double packetId);
 template <class T> double net_packet_write(double packetId, T value);
-template <class T> T net_packet_read(double packetId, T &var);
+template <class T> double net_packet_read(double packetId, T &var);
 double net_packet_clear(double packetId);
+double net_packet_length(double packetId);
 
 double net_utility_rc4_init(string keyString);
-double net_utility_rc4_step(double step);
+double net_utility_rc4_step();
+double net_utility_rc4_step_add(double step);
+double net_utility_rc4_step_set(double step);
 double net_utility_rc4_xor(double packetId);
 
 double net_tcp_connect(string ip, unsigned short port, bool blocking)
@@ -119,6 +126,17 @@ double net_tcp_accept(double listener_id, bool blocking)
     return 0;
 }
 
+double net_tcp_disconnect(double tcpsocketId)
+{
+    if(!SocketList.count(tcpsocketId)){
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+    TcpSocket* sock = dynamic_cast<TcpSocket* >(SocketList[tcpsocketId]);
+    sock->Disconnect();
+    return 1;
+}
+
 double net_tcp_connected(double tcpsocketId)
 {
     if(!SocketList.count(tcpsocketId)){
@@ -153,6 +171,41 @@ double net_tcp_send(double tcpsocketId, double packetId)
     {
         return 0;
     }
+    return 1;
+}
+
+double net_tcp_receive(double tcpsocketId, double packetId)
+{
+    if(!SocketList.count(tcpsocketId)){
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+    if(!PacketList.count(packetId))
+    {
+        last_error = Socket::InvalidPacketId;
+        return 0;
+    }
+
+    TcpSocket* sock = dynamic_cast<TcpSocket* >(SocketList[tcpsocketId]);
+
+    last_error = sock->Receive( *(PacketList[packetId]) );
+    if(last_error != Socket::Done)
+    {
+        return 0;
+    }
+    return 1;
+}
+
+double net_tcp_set_blocking(double tcpsocketId, bool blocking)
+{
+    if(!SocketList.count(tcpsocketId)){
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+
+    TcpSocket* sock = dynamic_cast<TcpSocket* >(SocketList[tcpsocketId]);
+
+    sock->SetBlocking(blocking);
     return 1;
 }
 
@@ -191,7 +244,7 @@ double net_utility_rc4_init(string keyString)
 
     //Drop the first 3072 bytes to avoid
     //Fluhrer, Mantin and Shamir attack
-    net_utility_rc4_step(3072);
+    net_utility_rc4_step_set(3072);
     rc4_step = 0;
 
     return 1;
@@ -202,7 +255,7 @@ double net_utility_rc4_init(string keyString)
 // Brings the rc4 system to the current
 //
 /////////////////////////////
-double net_utility_rc4_step(double step)
+double net_utility_rc4_step_set(double step)
 {
     if(!rc4_ready) return 0;
     if(step <= rc4_step) return 1;
@@ -222,6 +275,17 @@ double net_utility_rc4_step(double step)
     return 1;
 }
 
+double net_utility_rc4_step_add(double step)
+{
+    if(!rc4_ready) return 0;
+    return net_utility_rc4_step_set(rc4_step + step);
+}
+
+double net_utility_rc4_step()
+{
+    if(!rc4_ready) return 0;
+    return net_utility_rc4_step_set(rc4_step + 1);
+}
 
 double net_utility_rc4_xor(double packetId)
 {
@@ -239,8 +303,7 @@ double net_utility_rc4_xor(double packetId)
         return 1;
 
     vector<char>(*packetBytes) = pac->getDataPointer();
-
-    int k = 0;
+    size_t k = 0;
     while(k < size)
     {
         (*packetBytes)[k] ^= rc4_S[(rc4_S[rc4_i] + rc4_S[rc4_j]) & 255];
@@ -269,7 +332,7 @@ double net_packet_write(double packetId, T value)
 }
 
 template <class T>
-T net_packet_read(double packetId, T &var)
+double net_packet_read(double packetId, T &var)
 {
     if(!PacketList.count(packetId))
     {
@@ -278,7 +341,7 @@ T net_packet_read(double packetId, T &var)
     }
     if(*(PacketList[packetId]) >> var)
     {
-        return var;
+        return 1;
     }
     last_error = Socket::PacketEmpty;
     return 0;
@@ -305,6 +368,16 @@ double net_packet_clear(double packetId)
     }
     PacketList[packetId]->Clear();
     return 1;
+}
+
+double net_packet_length(double packetId)
+{
+    if(!PacketList.count(packetId))
+    {
+        last_error = Socket::InvalidPacketId;
+        return 0;
+    }
+    return PacketList[packetId]->GetDataSize();
 }
 
 string net_last_error()
@@ -391,6 +464,14 @@ int main()
             net_utility_rc4_xor(packetId);
 
             cout << net_tcp_send(sockId, packetId) << endl;
+
+            cout << endl << endl << "Waiting for data" << endl;
+            net_tcp_receive(sockId, packetId);
+            cout << "size: " << net_packet_length(packetId) << endl;
+
+            string str;
+            net_packet_read(packetId, str);
+            cout << str << endl;
 
             net_packet_destroy(packetId);
         }
