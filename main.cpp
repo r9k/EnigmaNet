@@ -291,7 +291,7 @@ bool net_utility_rc4_step_set(double step)
     if(step <= rc4_step) return 1;
 
     char temp;
-    for(double i = 0; i < step - rc4_step; ++i)
+    while(rc4_step < step)
     {
         rc4_i = (rc4_i + 1) & 255;
         rc4_j = (rc4_j + rc4_S[rc4_i]) & 255;
