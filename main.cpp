@@ -37,30 +37,30 @@ Socket::Status last_error;
 
 double net_tcp_connect(string ip, unsigned short port, bool blocking);
 double net_tcp_connect_timeout(string ip, unsigned short port, bool blocking, float seconds);
-double net_tcp_set_blocking(double tcpsocketId, bool blocking);
+bool net_tcp_set_blocking(double tcpsocketId, bool blocking);
 
 double net_tcp_listen(unsigned short port, bool blocking);
 double net_tcp_accept(double listener_id, bool blocking);
-double net_tcp_connected(double tcpsocketId);
-double net_tcp_disconnect(double tcpsocketId);
+bool net_tcp_connected(double tcpsocketId);
+bool net_tcp_disconnect(double tcpsocketId);
 
-double net_tcp_send(double tcpsocketId, double packetId);
-double net_tcp_receive(double tcpsocketId, double packetId);
+bool net_tcp_send(double tcpsocketId, double packetId);
+bool net_tcp_receive(double tcpsocketId, double packetId);
 
 string net_last_error();
 
 double net_packet_create();
-double net_packet_destroy(double packetId);
-template <class T> double net_packet_write(double packetId, T value);
-template <class T> double net_packet_read(double packetId, T &var);
-double net_packet_clear(double packetId);
+bool net_packet_destroy(double packetId);
+template <class T> bool net_packet_write(double packetId, T value);
+template <class T> bool net_packet_read(double packetId, T &var);
+bool net_packet_clear(double packetId);
 double net_packet_length(double packetId);
 
-double net_utility_rc4_init(string keyString);
-double net_utility_rc4_step();
-double net_utility_rc4_step_add(double step);
-double net_utility_rc4_step_set(double step);
-double net_utility_rc4_xor(double packetId);
+bool net_utility_rc4_init(string keyString);
+bool net_utility_rc4_step();
+bool net_utility_rc4_step_add(double step);
+bool net_utility_rc4_step_set(double step);
+bool net_utility_rc4_xor(double packetId);
 
 double net_tcp_connect(string ip, unsigned short port, bool blocking)
 {
@@ -131,7 +131,7 @@ double net_tcp_accept(double listener_id, bool blocking)
     return 0;
 }
 
-double net_tcp_disconnect(double tcpsocketId)
+bool net_tcp_disconnect(double tcpsocketId)
 {
     if(!SocketList.count(tcpsocketId)){
         last_error = Socket::InvalidSocketId;
@@ -147,7 +147,7 @@ double net_tcp_disconnect(double tcpsocketId)
     return 1;
 }
 
-double net_tcp_connected(double tcpsocketId)
+bool net_tcp_connected(double tcpsocketId)
 {
     if(!SocketList.count(tcpsocketId)){
         last_error = Socket::InvalidSocketId;
@@ -167,7 +167,7 @@ double net_tcp_connected(double tcpsocketId)
     return 0;
 }
 
-double net_tcp_send(double tcpsocketId, double packetId)
+bool net_tcp_send(double tcpsocketId, double packetId)
 {
     if(!SocketList.count(tcpsocketId)){
         last_error = Socket::InvalidSocketId;
@@ -194,7 +194,7 @@ double net_tcp_send(double tcpsocketId, double packetId)
     return 1;
 }
 
-double net_tcp_receive(double tcpsocketId, double packetId)
+bool net_tcp_receive(double tcpsocketId, double packetId)
 {
     if(!SocketList.count(tcpsocketId)){
         last_error = Socket::InvalidSocketId;
@@ -221,7 +221,7 @@ double net_tcp_receive(double tcpsocketId, double packetId)
     return 1;
 }
 
-double net_tcp_set_blocking(double tcpsocketId, bool blocking)
+bool net_tcp_set_blocking(double tcpsocketId, bool blocking)
 {
     if(!SocketList.count(tcpsocketId)){
         last_error = Socket::InvalidSocketId;
@@ -248,7 +248,7 @@ bool rc4_ready = false;
 // Call this once to init the rc4 system
 //
 /////////////////////////////////////////////
-double net_utility_rc4_init(string keyString)
+bool net_utility_rc4_init(string keyString)
 {
     const char* key = keyString.c_str();
     unsigned int key_length = keyString.length();
@@ -285,7 +285,7 @@ double net_utility_rc4_init(string keyString)
 // Brings the rc4 system to the current
 //
 /////////////////////////////
-double net_utility_rc4_step_set(double step)
+bool net_utility_rc4_step_set(double step)
 {
     if(!rc4_ready) return 0;
     if(step <= rc4_step) return 1;
@@ -305,19 +305,19 @@ double net_utility_rc4_step_set(double step)
     return 1;
 }
 
-double net_utility_rc4_step_add(double step)
+bool net_utility_rc4_step_add(double step)
 {
     if(!rc4_ready) return 0;
     return net_utility_rc4_step_set(rc4_step + step);
 }
 
-double net_utility_rc4_step()
+bool net_utility_rc4_step()
 {
     if(!rc4_ready) return 0;
     return net_utility_rc4_step_set(rc4_step + 1);
 }
 
-double net_utility_rc4_xor(double packetId)
+bool net_utility_rc4_xor(double packetId)
 {
     if(!rc4_ready) return 0;
     if(!PacketList.count(packetId))
@@ -350,7 +350,7 @@ double net_packet_create()
 }
 
 template <class T>
-double net_packet_write(double packetId, T value)
+bool net_packet_write(double packetId, T value)
 {
     if(!PacketList.count(packetId))
     {
@@ -362,7 +362,7 @@ double net_packet_write(double packetId, T value)
 }
 
 template <class T>
-double net_packet_read(double packetId, T &var)
+bool net_packet_read(double packetId, T &var)
 {
     if(!PacketList.count(packetId))
     {
@@ -377,7 +377,7 @@ double net_packet_read(double packetId, T &var)
     return 0;
 }
 
-double net_packet_destroy(double packetId)
+bool net_packet_destroy(double packetId)
 {
     if(PacketList.count(packetId))
     {
@@ -389,7 +389,7 @@ double net_packet_destroy(double packetId)
     return 0;
 }
 
-double net_packet_clear(double packetId)
+bool net_packet_clear(double packetId)
 {
     if(!PacketList.count(packetId))
     {
