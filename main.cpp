@@ -111,6 +111,11 @@ double net_tcp_accept(double listener_id, bool blocking)
     do
     {
         TcpListener* listener = dynamic_cast<TcpListener* >(SocketList[listener_id]);
+        if(!listener)
+        {
+            last_error = Socket::InvalidSocketId;
+            return 0;
+        }
         listener->SetBlocking(blocking);
 
         if(listener->Accept(*client) == Socket::Done)
@@ -133,6 +138,11 @@ double net_tcp_disconnect(double tcpsocketId)
         return 0;
     }
     TcpSocket* sock = dynamic_cast<TcpSocket* >(SocketList[tcpsocketId]);
+    if(!sock)
+    {
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
     sock->Disconnect();
     return 1;
 }
@@ -145,6 +155,11 @@ double net_tcp_connected(double tcpsocketId)
     }
 
     TcpSocket* sock = dynamic_cast<TcpSocket* >(SocketList[tcpsocketId]);
+    if(!sock)
+    {
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
     if(sock->GetRemoteAddress() != 0)
     {
         return 1;
@@ -165,6 +180,11 @@ double net_tcp_send(double tcpsocketId, double packetId)
     }
 
     TcpSocket* sock = dynamic_cast<TcpSocket* >(SocketList[tcpsocketId]);
+    if(!sock)
+    {
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
 
     last_error = sock->Send( *(PacketList[packetId]) );
     if(last_error != Socket::Done)
@@ -187,6 +207,11 @@ double net_tcp_receive(double tcpsocketId, double packetId)
     }
 
     TcpSocket* sock = dynamic_cast<TcpSocket* >(SocketList[tcpsocketId]);
+    if(!sock)
+    {
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
 
     last_error = sock->Receive( *(PacketList[packetId]) );
     if(last_error != Socket::Done)
@@ -204,6 +229,11 @@ double net_tcp_set_blocking(double tcpsocketId, bool blocking)
     }
 
     TcpSocket* sock = dynamic_cast<TcpSocket* >(SocketList[tcpsocketId]);
+    if(!sock)
+    {
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
 
     sock->SetBlocking(blocking);
     return 1;
