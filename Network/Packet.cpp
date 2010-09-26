@@ -113,7 +113,6 @@ Packet& Packet::operator >>(bool& data)
     return *this;
 }
 
-
 ////////////////////////////////////////////////////////////
 Packet& Packet::operator >>(Int8& data)
 {

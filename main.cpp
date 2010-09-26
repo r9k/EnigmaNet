@@ -47,6 +47,15 @@ bool net_tcp_disconnect(double tcpsocketId);
 bool net_tcp_send(double tcpsocketId, double packetId);
 bool net_tcp_receive(double tcpsocketId, double packetId);
 
+
+bool net_udp_bind(unsigned short port, bool blocking);
+bool net_udp_bind_available(bool blocking);
+bool net_udp_unbind(double udpsocketId);
+unsigned short net_udp_localport(double udpsocketId);
+bool net_udp_set_blocking(double udpsocketId, bool blocking);
+bool net_udp_send(double udpsocketId, double packetId, string ipAddress, unsigned short remotePort);
+bool net_udp_receive(double udpsocketId, double packetId, string &ipAddress, unsigned short &remotePort);
+
 string net_last_error();
 
 double net_packet_create();
@@ -54,7 +63,7 @@ bool net_packet_destroy(double packetId);
 template <class T> bool net_packet_write(double packetId, T value);
 template <class T> bool net_packet_read(double packetId, T &var);
 bool net_packet_clear(double packetId);
-double net_packet_length(double packetId);
+double net_packet_size(double packetId);
 
 bool net_utility_rc4_init(string keyString);
 bool net_utility_rc4_step();
@@ -239,6 +248,138 @@ bool net_tcp_set_blocking(double tcpsocketId, bool blocking)
     return 1;
 }
 
+bool net_udp_bind(unsigned short port, bool blocking)
+{
+    UdpSocket* sock = new UdpSocket();
+    sock->SetBlocking(blocking);
+
+    last_error = sock->Bind(port);
+
+    if(last_error != Socket::Done)
+    {
+        delete sock;
+        return 0;
+    }
+    return insertSock(sock);
+}
+
+bool net_udp_bind_available(bool blocking)
+{
+    return net_udp_bind(Socket::AnyPort, blocking);
+}
+
+unsigned short net_udp_localport(double udpsocketId)
+{
+    if(!SocketList.count(udpsocketId)){
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+
+    UdpSocket* sock = dynamic_cast<UdpSocket* >(SocketList[udpsocketId]);
+    if(!sock)
+    {
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+
+    return sock->GetLocalPort();
+}
+
+bool net_udp_unbind(double udpsocketId)
+{
+    if(!SocketList.count(udpsocketId)){
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+
+    UdpSocket* sock = dynamic_cast<UdpSocket* >(SocketList[udpsocketId]);
+    if(!sock)
+    {
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+
+    sock->Unbind();
+    return 1;
+}
+
+bool net_udp_set_blocking(double udpsocketId, bool blocking)
+{
+    if(!SocketList.count(udpsocketId)){
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+
+    UdpSocket* sock = dynamic_cast<UdpSocket* >(SocketList[udpsocketId]);
+    if(!sock)
+    {
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+
+    sock->SetBlocking(blocking);
+    return 1;
+}
+
+bool net_udp_send(double udpsocketId, double packetId, string ipAddress, unsigned short remotePort)
+{
+    if(!SocketList.count(udpsocketId)){
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+    if(!PacketList.count(packetId))
+    {
+        last_error = Socket::InvalidPacketId;
+        return 0;
+    }
+
+    UdpSocket* sock = dynamic_cast<UdpSocket* >(SocketList[udpsocketId]);
+    if(!sock)
+    {
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+
+    last_error = sock->Send( *(PacketList[packetId]), IpAddress(ipAddress), remotePort);
+    if(last_error != Socket::Done)
+    {
+        return 0;
+    }
+    return 1;
+}
+
+bool net_udp_receive(double udpsocketId, double packetId, string &ipAddress, unsigned short &remotePort)
+{
+    if(!SocketList.count(udpsocketId)){
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+    if(!PacketList.count(packetId))
+    {
+        last_error = Socket::InvalidPacketId;
+        return 0;
+    }
+
+    UdpSocket* sock = dynamic_cast<UdpSocket* >(SocketList[udpsocketId]);
+    if(!sock)
+    {
+        last_error = Socket::InvalidSocketId;
+        return 0;
+    }
+
+    IpAddress ipadd(ipAddress);
+
+    last_error = sock->Receive( *(PacketList[packetId]), ipadd, remotePort);
+
+    ipAddress = ipadd.ToString();
+
+    if(last_error != Socket::Done)
+    {
+        return 0;
+    }
+    return 1;
+}
+
 unsigned char rc4_S[256];
 unsigned int rc4_i, rc4_j;
 double rc4_step = 0;
@@ -369,6 +510,7 @@ bool net_packet_read(double packetId, T &var)
         last_error = Socket::InvalidPacketId;
         return 0;
     }
+
     if(*(PacketList[packetId]) >> var)
     {
         return 1;
@@ -400,7 +542,7 @@ bool net_packet_clear(double packetId)
     return 1;
 }
 
-double net_packet_length(double packetId)
+double net_packet_size(double packetId)
 {
     if(!PacketList.count(packetId))
     {
@@ -445,66 +587,25 @@ int main()
     double packetId;
     double sockId;
 
-    sockId = net_tcp_listen(1080);
-    if(!sockId){
-        cout << net_last_error() << endl;
-    }else{
-        sockId = net_tcp_accept(sockId, true);
-        if(!sockId)
+    sockId = net_udp_bind(1080, true);
+    if(sockId)
+    {
+        packetId = net_packet_create();
+        string ipAdd = "";
+        unsigned short port = 0;
+        string data = "";
+        unsigned char chr;
+
+        net_udp_receive(sockId, packetId, ipAdd, port);
+        while(net_packet_read(packetId, chr))
         {
-            cout << net_last_error() << endl;
+            data += chr;
         }
-        else
-        {
-            cout << net_tcp_connected(sockId) << endl;
-            packetId = net_packet_create();
 
-            net_packet_write(packetId, 1337);
-            net_packet_clear(packetId);
+        cout << "Size Received: " << net_packet_size(packetId) << endl;
+        cout << "IpAddress: " << ipAdd << endl << "Port: " << port << endl << "Data: " << data << endl;
 
-            net_packet_write(packetId, 65535);
-            net_packet_write(packetId, (short) 1);
-            net_packet_write(packetId, (short) 0);
-
-            int a; int b;
-
-            net_packet_read(packetId, a);
-            net_packet_read(packetId, b);
-
-            //65535 65536
-            cout << a << " " << b << endl;
-
-            net_packet_clear(packetId);
-            net_packet_write(packetId, "1\n");
-            net_packet_write(packetId, "2\n");
-            net_packet_write(packetId, "3\n");
-            cout << net_tcp_send(sockId, packetId) << endl;
-            Sleep(3);
-            net_packet_write(packetId, "4\n");
-            cout << net_tcp_send(sockId, packetId) << endl;
-            Sleep(3);
-            net_packet_clear(packetId);
-            net_packet_write(packetId, "5\n");
-            cout << net_tcp_send(sockId, packetId) << endl;
-            Sleep(3);
-            net_packet_clear(packetId);
-            net_packet_write(packetId, "pedia");
-
-            net_utility_rc4_init("a_cool_key");
-            net_utility_rc4_xor(packetId);
-
-            cout << net_tcp_send(sockId, packetId) << endl;
-
-            cout << endl << endl << "Waiting for data" << endl;
-            net_tcp_receive(sockId, packetId);
-            cout << "size: " << net_packet_length(packetId) << endl;
-
-            string str;
-            net_packet_read(packetId, str);
-            cout << str << endl;
-
-            net_packet_destroy(packetId);
-        }
+        net_udp_unbind(sockId);
     }
 
     return sockId;
