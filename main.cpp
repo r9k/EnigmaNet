@@ -7,6 +7,8 @@
 using namespace std;
 using namespace sf;
 
+Socket::Status last_error;
+
 map<double, Socket* > SocketList;
 typedef pair<double, Socket* > SocketListPair;
 double SocketIncrement = 0;
@@ -26,6 +28,12 @@ double HttpRequestIncrement = 0;
 map<double, Http::Response > HttpResponseList;
 typedef pair<double, Http::Response > HttpResponseListPair;
 double HttpResponseIncrement = 0;
+
+#include "rc4.hpp"
+
+map<double, net_utility_rc4 > Rc4List;
+typedef pair<double, net_utility_rc4 > Rc4ListPair;
+double Rc4Increment = 0;
 
 double insertSock(Socket* sock)
 {
@@ -62,17 +70,20 @@ double insertHttpResponse(Http::Response res)
     return HttpResponseIncrement;
 }
 
-Socket::Status last_error;
+double insertRc4(net_utility_rc4 rc4)
+{
+    Rc4List.insert(Rc4ListPair(++Rc4Increment, rc4));
+
+    return Rc4Increment;
+}
 
 double net_tcp_connect(string ip, unsigned short port, bool blocking);
 double net_tcp_connect_timeout(string ip, unsigned short port, bool blocking, float seconds);
 bool net_tcp_set_blocking(double tcpsocketId, bool blocking);
-
 double net_tcp_listen(unsigned short port, bool blocking);
 double net_tcp_accept(double listener_id, bool blocking);
 bool net_tcp_connected(double tcpsocketId);
 bool net_tcp_disconnect(double tcpsocketId);
-
 bool net_tcp_send(double tcpsocketId, double packetId);
 bool net_tcp_receive(double tcpsocketId, double packetId);
 bool net_tcp_destroy(double tcpsocketId);
@@ -91,14 +102,12 @@ double net_http_create();
 bool net_http_host(double httpId, string host);
 double net_http_send(double httpId, double httpRequestId);
 bool net_http_destroy(double httpId);
-
 double net_http_request_create();
 bool net_http_request_method(double httpRequestId, string method);
 bool net_http_request_uri(double httpRequestId, string uri);
 bool net_http_request_field(double httpRequestId, string name, string value);
 bool net_http_request_body(double httpRequestId, string body);
 bool net_http_request_destroy(double httpRequestId);
-
 double net_http_response_status(double httpResponseId);
 string net_http_response_body(double httpResponseId);
 bool net_http_response_destroy(double httpResponseId);
@@ -112,11 +121,11 @@ template <class T> bool net_packet_read(double packetId, T &var);
 bool net_packet_clear(double packetId);
 double net_packet_size(double packetId);
 
-bool net_utility_rc4_init(string keyString);
-bool net_utility_rc4_step();
-bool net_utility_rc4_step_add(double step);
-bool net_utility_rc4_step_set(double step);
-bool net_utility_rc4_xor(double packetId);
+double net_utility_rc4_create(string keyString);
+bool net_utility_rc4_step(double rc4Id);
+bool net_utility_rc4_step_add(double rc4Id, double step);
+bool net_utility_rc4_step_set(double rc4Id, double step);
+bool net_utility_rc4_xor(double rc4Id, double packetId);
 
 double net_tcp_connect(string ip, unsigned short port, bool blocking)
 {
@@ -607,108 +616,59 @@ bool net_http_response_destroy(double httpResponseId)
     return 1;
 }
 
-unsigned char rc4_S[256];
-unsigned int rc4_i, rc4_j;
-double rc4_step = 0;
-bool rc4_ready = false;
-/////////////////////////////////////////////
-//
-// Call this once to init the rc4 system
-//
-/////////////////////////////////////////////
-bool net_utility_rc4_init(string keyString)
+double net_utility_rc4_create(string keyString)
 {
-    const char* key = keyString.c_str();
-    unsigned int key_length = keyString.length();
-
-    if(key_length == 0)
-        return 0;
-
-    for (rc4_i = 0; rc4_i < 256; rc4_i++)
-        rc4_S[rc4_i] = rc4_i;
-
-    char temp;
-
-    for (rc4_i = rc4_j = 0; rc4_i < 256; rc4_i++) {
-        rc4_j = (rc4_j + key[rc4_i % key_length] + rc4_S[rc4_i]) & 255;
-        temp = rc4_S[rc4_i];
-        rc4_S[rc4_i] = rc4_S[rc4_j];
-        rc4_S[rc4_j] = temp;
-    }
-
-    rc4_i = rc4_j = 0;
-
-    rc4_ready = 1;
-
-    //Drop the first 3072 bytes to avoid
-    //Fluhrer, Mantin and Shamir attack
-    net_utility_rc4_step_set(3072);
-    rc4_step = 0;
-
-    return 1;
+    return insertRc4(net_utility_rc4(keyString));
 }
 
-///////////////////////////////
-//
-// Brings the rc4 system to the current
-//
-/////////////////////////////
-bool net_utility_rc4_step_set(double step)
+bool net_utility_rc4_step_set(double rc4Id, double step)
 {
-    if(!rc4_ready) return 0;
-    if(step <= rc4_step) return 1;
-
-    char temp;
-    while(rc4_step < step)
-    {
-        rc4_i = (rc4_i + 1) & 255;
-        rc4_j = (rc4_j + rc4_S[rc4_i]) & 255;
-
-        temp = rc4_S[rc4_i];
-        rc4_S[rc4_i] = rc4_S[rc4_j];
-        rc4_S[rc4_j] = temp;
-
-        ++rc4_step;
-    }
-    return 1;
-}
-
-bool net_utility_rc4_step_add(double step)
-{
-    if(!rc4_ready) return 0;
-    return net_utility_rc4_step_set(rc4_step + step);
-}
-
-bool net_utility_rc4_step()
-{
-    if(!rc4_ready) return 0;
-    return net_utility_rc4_step_set(rc4_step + 1);
-}
-
-bool net_utility_rc4_xor(double packetId)
-{
-    if(!rc4_ready) return 0;
-    if(!PacketList.count(packetId))
-    {
-        last_error = Socket::InvalidPacketId;
+    if(!Rc4List.count(rc4Id)){
+        last_error = Socket::InvalidRc4Id;
         return 0;
     }
 
-    Packet *pac = PacketList[packetId];
+    return Rc4List[rc4Id].step_set(step);
+}
 
-    size_t size = pac->GetDataSize();
-    if(size == 0)
-        return 1;
-
-    vector<char>(*packetBytes) = pac->getDataPointer();
-    size_t k = 0;
-    while(k < size)
-    {
-        (*packetBytes)[k] ^= rc4_S[(rc4_S[rc4_i] + rc4_S[rc4_j]) & 255];
-        k++;
+bool net_utility_rc4_step_add(double rc4Id, double step)
+{
+    if(!Rc4List.count(rc4Id)){
+        last_error = Socket::InvalidRc4Id;
+        return 0;
     }
 
-    return 1;
+    return Rc4List[rc4Id].step_add(step);
+}
+
+bool net_utility_rc4_step(double rc4Id)
+{
+    if(!Rc4List.count(rc4Id)){
+        last_error = Socket::InvalidRc4Id;
+        return 0;
+    }
+
+    return Rc4List[rc4Id].do_step();
+}
+
+bool net_utility_rc4_xor(double rc4Id, double packetId)
+{
+    if(!Rc4List.count(rc4Id)){
+        last_error = Socket::InvalidRc4Id;
+        return 0;
+    }
+
+    return Rc4List[rc4Id].do_xor(packetId);
+}
+
+char net_utility_rc4_byte(double rc4Id)
+{
+    if(!Rc4List.count(rc4Id)){
+        last_error = Socket::InvalidRc4Id;
+        return 0;
+    }
+
+    return Rc4List[rc4Id].currentByte();
 }
 
 double net_packet_create()
@@ -811,6 +771,9 @@ string net_last_error()
         case Socket::InvalidHttpResponseId:
             error = "InvalidHttpResponseId";
             break;
+        case Socket::InvalidRc4Id:
+            error = "InvalidRc4Id";
+            break;
         case Socket::PacketEmpty:
             error = "PacketEmpty";
             break;
@@ -820,30 +783,31 @@ string net_last_error()
 
 int main()
 {
-    double packetId;
-    double sockId;
+    double httpId = net_http_create();
+    net_http_host(httpId, "enigma-dev.org");
 
-    sockId = net_udp_bind(1080, true);
-    if(sockId)
-    {
-        packetId = net_packet_create();
-        string ipAdd = "";
-        unsigned short port = 0;
-        string data = "";
-        unsigned char chr;
+    double request = net_http_request_create();
+    net_http_request_method(request, "GET");
+    net_http_request_uri(request, "/tracker/");
 
-        net_udp_receive(sockId, packetId, ipAdd, port);
-        while(net_packet_read(packetId, chr))
-        {
-            data += chr;
-        }
+    double response = net_http_send(httpId, request);
+    cout << net_http_response_body(response) << endl;
 
-        cout << "Size Received: " << net_packet_size(packetId) << endl;
-        cout << "IpAddress: " << ipAdd << endl << "Port: " << port << endl << "Data: " << data << endl;
+    net_http_response_destroy(response);
+    net_http_request_destroy(request);
+    net_http_destroy(httpId);
 
-        net_udp_unbind(sockId);
-    }
+    double rc4_1 = net_utility_rc4_create("A-vEry-lONg-test-KEY");
+    double rc4_2 = net_utility_rc4_create("A-vEry-lONg-test-KEY");
 
-    return sockId;
+    net_utility_rc4_step_add(rc4_1, 1000);
+    net_utility_rc4_step_add(rc4_1, 350);
+
+    net_utility_rc4_step_set(rc4_2, 1350);
+
+    cout << net_utility_rc4_byte(rc4_1) << endl;
+    cout << net_utility_rc4_byte(rc4_2) << endl;
+
+    return 1;
 }
 

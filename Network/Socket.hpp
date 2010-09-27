@@ -59,7 +59,8 @@ public :
         InvalidPacketId,        ///< Packet does not exists
         InvalidHttpId,          ///< Http does not exists
         InvalidHttpRequestId,   ///< HttpRequest does not exists
-        InvalidHttpResponseId,  ///< HttpRequest does not exists
+        InvalidHttpResponseId,  ///< HttpResponse does not exists
+        InvalidRc4Id,           ///< Rc4 does not exists
         PacketEmpty             ///< Not enough data left to read
     };
 

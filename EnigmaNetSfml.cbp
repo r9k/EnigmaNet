@@ -108,6 +108,7 @@
 		<Unit filename="System\Win32\ThreadLocalImpl.cpp" />
 		<Unit filename="System\Win32\ThreadLocalImpl.hpp" />
 		<Unit filename="main.cpp" />
+		<Unit filename="rc4.hpp" />
 		<Extensions>
 			<code_completion />
 			<debugger />
