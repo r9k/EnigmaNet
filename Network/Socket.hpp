@@ -51,13 +51,16 @@ public :
     ////////////////////////////////////////////////////////////
     enum Status
     {
-        Done,           ///< The socket has sent / received the data
-        NotReady,       ///< The socket is not ready to send / receive data yet
-        Disconnected,   ///< The TCP socket has been disconnected
-        Error,          ///< An unexpected error happened
-        InvalidSocketId,///< Socket does not exists
-        InvalidPacketId,///< Packet does not exists
-        PacketEmpty     ///< Not enough data left to read
+        Done,                   ///< The socket has sent / received the data
+        NotReady,               ///< The socket is not ready to send / receive data yet
+        Disconnected,           ///< The TCP socket has been disconnected
+        Error,                  ///< An unexpected error happened
+        InvalidSocketId,        ///< Socket does not exists
+        InvalidPacketId,        ///< Packet does not exists
+        InvalidHttpId,          ///< Http does not exists
+        InvalidHttpRequestId,   ///< HttpRequest does not exists
+        InvalidHttpResponseId,  ///< HttpRequest does not exists
+        PacketEmpty             ///< Not enough data left to read
     };
 
     ////////////////////////////////////////////////////////////
