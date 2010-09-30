@@ -30,19 +30,6 @@
 ////////////////////////////////////////////////////////////
 
 #include "./Config.hpp"
-#include "./System/Clock.hpp"
-#include "./System/Err.hpp"
-#include "./System/Lock.hpp"
-#include "./System/Mutex.hpp"
-#include "./System/Randomizer.hpp"
-#include "./System/Sleep.hpp"
-#include "./System/String.hpp"
-#include "./System/Thread.hpp"
-#include "./System/ThreadLocal.hpp"
-#include "./System/ThreadLocalPtr.hpp"
-#include "./System/Utf.hpp"
-#include "./System/Vector2.hpp"
-#include "./System/Vector3.hpp"
 
 #endif // SFML_SYSTEM_HPP
 

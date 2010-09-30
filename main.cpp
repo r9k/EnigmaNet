@@ -126,6 +126,8 @@ bool net_utility_rc4_step(double rc4Id);
 bool net_utility_rc4_step_add(double rc4Id, double step);
 bool net_utility_rc4_step_set(double rc4Id, double step);
 bool net_utility_rc4_xor(double rc4Id, double packetId);
+char net_utility_rc4_byte(double rc4Id);
+bool net_utility_rc4_destroy(double rc4Id);
 
 double net_tcp_connect(string ip, unsigned short port, bool blocking)
 {
@@ -661,6 +663,17 @@ bool net_utility_rc4_xor(double rc4Id, double packetId)
     return Rc4List[rc4Id].do_xor(packetId);
 }
 
+bool net_utility_rc4_destroy(double rc4Id)
+{
+    if(!Rc4List.count(rc4Id)){
+        last_error = Socket::InvalidRc4Id;
+        return 0;
+    }
+
+    Rc4List.erase(rc4Id);
+    return 1;
+}
+
 char net_utility_rc4_byte(double rc4Id)
 {
     if(!Rc4List.count(rc4Id)){
@@ -805,8 +818,19 @@ int main()
 
     net_utility_rc4_step_set(rc4_2, 1350);
 
-    cout << net_utility_rc4_byte(rc4_1) << endl;
+    cout << net_utility_rc4_byte(rc4_1);
+    net_utility_rc4_step(rc4_1);
+    cout << net_utility_rc4_byte(rc4_1);
+    net_utility_rc4_step(rc4_1);
+    cout << net_utility_rc4_byte(rc4_1);
+    net_utility_rc4_step(rc4_1);
+    cout << net_utility_rc4_byte(rc4_1);
+    cout << endl;
+
     cout << net_utility_rc4_byte(rc4_2) << endl;
+
+    net_utility_rc4_destroy(rc4_1);
+    net_utility_rc4_destroy(rc4_2);
 
     return 1;
 }
